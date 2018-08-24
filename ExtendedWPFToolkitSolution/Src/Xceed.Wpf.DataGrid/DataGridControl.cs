@@ -3140,6 +3140,38 @@ namespace Xceed.Wpf.DataGrid
     #endregion
 
     #region Drag Management
+	/// <summary>Identifies the DragBehavior dependency property.</summary>
+	public static readonly DependencyProperty DragBehaviorProperty = DependencyProperty.Register(
+		nameof (DragBehavior),
+		typeof (DataGridDragBehavior),
+		typeof (DataGridControl),
+		(PropertyMetadata) new UIPropertyMetadata((object) DataGridDragBehavior.DragDrop,
+		new PropertyChangedCallback(DataGridControl.OnDragBehaviorChanged)));
+
+    public DataGridDragBehavior DragBehavior
+	{
+		get
+		{
+			return (DataGridDragBehavior)this.GetValue(DataGridControl.DragBehaviorProperty);
+		}
+		set
+		{
+			this.SetValue(DataGridControl.DragBehaviorProperty, (object)value);
+		}
+	}
+
+	private static void OnDragBehaviorChanged(DependencyObject sender, DependencyPropertyChangedEventArgs e)
+	{
+		DataGridControl dataGridControl = sender as DataGridControl;
+		if (dataGridControl == null || !dataGridControl.AllowDrag)
+			return;
+		DataGridDragBehavior newValue = (DataGridDragBehavior)e.NewValue;
+		if (newValue != DataGridDragBehavior.Select)
+			dataGridControl.AbortDragSelection();
+		if (newValue == DataGridDragBehavior.DragDrop)
+			return;
+		dataGridControl.ResetDragDataObject();
+	}
 
     public static readonly DependencyProperty AllowDragProperty = DependencyProperty.Register(
       "AllowDrag",
@@ -3160,17 +3192,24 @@ namespace Xceed.Wpf.DataGrid
     }
 
     private static void OnAllowDragPropertyChanged( DependencyObject sender, DependencyPropertyChangedEventArgs e )
-    {
-      var self = sender as DataGridControl;
-      if( ( self == null ) || ( ( bool )e.NewValue ) )
-        return;
-    }
+	{
+		var dataGridControl = sender as DataGridControl;
+		if (dataGridControl == null || (bool)e.NewValue)
+			return;
+		if (dataGridControl.DragBehavior == DataGridDragBehavior.DragDrop)
+			dataGridControl.ResetDragDataObject();
+		if (dataGridControl.DragBehavior != DataGridDragBehavior.Select)
+			return;
+		dataGridControl.AbortDragSelection();
+	}
 
     internal bool UseDragBehavior
     {
       get
       {
-        return false;
+		if (this.AllowDrag)
+		  return this.DragBehavior == DataGridDragBehavior.DragDrop;
+		return false;
       }
     }
 
@@ -4759,6 +4798,8 @@ namespace Xceed.Wpf.DataGrid
     {
       get
       {
+        if (this.AllowDrag && this.DragBehavior == DataGridDragBehavior.Select)
+		  return this.View is TableView;
         return false;
       }
     }
